@@ -7,21 +7,33 @@ define([
 	// Some references to things we'll need
 	var routes = [],
 		routeIndex = {},
+		started = false,
 		curPath;
 
 	function handleHashChange(hash){
-		var i, l, routeObj, result;
+		var i, j, li, lj, routeObj, result, parameterNames, callbackObj;
+
+		if (!started) { return; }
 
 		if (hash === curPath) { return; }
 		curPath = hash;
-		console.log("New hash:",curPath);
 
-		for(i = 0, l = routes.length; i < l; ++i){
+		for(i = 0, li = routes.length; i < li; ++i){
 			routeObj = routes[i];
 			result = routeObj.route.exec(curPath);
 
 			if (result) {
-				routeObj.handler.apply(null, result.slice(1));
+				if (routeObj.parameterNames) {
+					parameterNames = routeObj.parameterNames;
+					callbackObj = {};
+
+					for (j = 0, lj = parameterNames.length; j < lj; ++j) {
+						callbackObj[parameterNames[j]] = result[j+1];
+					}
+				} else {
+					callbackObj = result.slice(1);
+				}
+				routeObj.handler(callbackObj);
 			}
 		}
 	}
@@ -32,18 +44,32 @@ define([
 		idReplacement = "([^\\/]+)",
 		splatMatch = /\*(\w[\w\d]*)/,
 		splatReplacement = "(.+)";
-	function convertRouteToRegExp(route){
-		if (typeof route == "string") {
-			// Sub in based on IDs and splats
-			route = route.replace(idMatch, idReplacement);
-			route = route.replace(splatMatch, splatReplacement);
-			// Make sure it's an exact match
-			route = "^" + route + "$";
 
-			// Hand it back
-			return new RegExp(route);
+	function convertRouteToRegExp(route){
+		// Sub in based on IDs and splats
+		route = route.replace(idMatch, idReplacement);
+		route = route.replace(splatMatch, splatReplacement);
+		// Make sure it's an exact match
+		route = "^" + route + "$";
+
+		// Hand it back
+		return new RegExp(route);
+	}
+
+	function getParameterNames(route){
+		var parameterNames = [], match;
+
+		idMatch.lastIndex = 0;
+
+		while ((match = idMatch.exec(route)) !== null) {
+			parameterNames.push(match[1]);
 		}
-		return route;
+
+		if ((match = splatMatch.exec(route)) !== null) {
+			parameterNames.push(match[1]);
+		}
+
+		return parameterNames.length > 0 ? parameterNames : null;
 	}
 
 	// Build up our index
@@ -64,7 +90,7 @@ define([
 	}
 
 	// A simple empty function to give us an aspecting hook
-	function noop(){ console.log("noop"); }
+	function noop(){}
 
 	var router = {
 		register: function(route, handler, isBefore) {
@@ -79,14 +105,20 @@ define([
 			// If we didn't get one, make a default start point
 			if (!routeObj) {
 				routeObj = {
-					route: convertRouteToRegExp(route),
+					route: route,
 					handler: noop,
 					count: 0
 				};
 			}
 
+			if (typeof route === "string") {
+				routeObj.parameterNames = getParameterNames(route);
+				routeObj.route = convertRouteToRegExp(route);
+			}
+
+
 			if (isBefore) {
-				handle = aspect.before(routeObj, "handler", handler)
+				handle = aspect.before(routeObj, "handler", handler);
 			} else {
 				handle = aspect.after(routeObj, "handler", handler, true);
 			}
@@ -130,6 +162,13 @@ define([
 			path = string.trim(path);
 			if (path.indexOf("/") !== 0) { path = "/" + path; }
 			hash(path, replace);
+		},
+
+		startup: function(){
+			if (started) { return; }
+
+			started = true;
+			handleHashChange(hash());
 		}
 	};
 
