@@ -9,22 +9,19 @@ define([
 		routeIndex = {},
 		curPath;
 
-	// Create a function to handle hash changes
 	function handleHashChange(hash){
-		var i, l, route, result;
+		var i, l, routeObj, result;
 
 		if (hash === curPath) { return; }
 		curPath = hash;
 		console.log("New hash:",curPath);
 
-		// TODO: Properly pass parameters through
 		for(i = 0, l = routes.length; i < l; ++i){
-			route = routes[i];
-			result = route.route.exec(curPath);
+			routeObj = routes[i];
+			result = routeObj.route.exec(curPath);
 
 			if (result) {
-				debugger;
-				route.handler.apply(null, result.slice(1));
+				routeObj.handler.apply(null, result.slice(1));
 			}
 		}
 	}
@@ -70,37 +67,35 @@ define([
 	function noop(){ console.log("noop"); }
 
 	var router = {
-		add: function(args) {
-			var index, exists, route, handle, removed;
+		register: function(route, handler, isBefore) {
+			var index, exists, routeObj, handle, removed;
 
 			// Try to fetch the route if it already exists
-			// This works thanks to stringifying of regex, woo
-			index = routeIndex[args.route];
-			exists = typeof index != "undefined";
-			if (exists) { route = routes[index]; }
+			// This works thanks to stringifying of regex
+			index = routeIndex[route];
+			exists = typeof index !== "undefined";
+			if (exists) { routeObj = routes[index]; }
 
 			// If we didn't get one, make a default start point
-			if (!route) {
-				route = {
-					route: convertRouteToRegExp(args.route),
+			if (!routeObj) {
+				routeObj = {
+					route: convertRouteToRegExp(route),
 					handler: noop,
 					count: 0
 				};
 			}
 
-			// Set up our handler, forcing receiveArguments
-			if (args.before) {
-				handle = aspect.before(route, "handler", args.handler)
+			if (isBefore) {
+				handle = aspect.before(routeObj, "handler", handler)
 			} else {
-				handle = aspect.after(route, "handler", args.handler, true);
+				handle = aspect.after(routeObj, "handler", handler, true);
 			}
-			route.count++;
+			routeObj.count++;
 
-			// If we don't have an index, put it into the index
 			if (!exists) {
 				index = routes.length;
-				routeIndex[args.route] = index;
-				routes.push(route);
+				routeIndex[route] = index;
+				routes.push(routeObj);
 			}
 
 			// Useful in a moment to keep from re-removing routes
@@ -108,27 +103,20 @@ define([
 
 			return {
 				remove: function(){
-					// Don't try to remove if we've already done so
 					if (removed) { return; }
 
-					// Remove the aspect and decrement the count
 					handle.remove();
-					route.count--;
+					routeObj.count--;
 
-					// If we're down to zero, cut and reindex
-					if (route.count === 0) {
+					if (routeObj.count === 0) {
 						routes.splice(index, 1);
 						indexRoutes();
 					}
 
-					// Mark as removed
 					removed = true;
 				},
-				add: function(handler) {
-					return router.add({
-						route: args.route,
-						handler: handler
-					});
+				register: function(handler, isBefore) {
+					return router.register(route, handler, isBefore);
 				}
 			};
 		},
