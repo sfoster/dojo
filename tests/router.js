@@ -101,8 +101,93 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 			}
 		},
 		{
-			name: "Registering more complex routes",
+			name: "Registering long routes with placeholders",
 			runTest: function(t) {
+				var testObject;
+
+				router.register("/path/:to/:some/:long/*thing", function(params){
+					testObject = params;
+				});
+
+				router.go("/path/to/some/long/thing/this/is/in/splat");
+
+				t.t(testObject instanceof Object, "testObject should have been an object, but wasn't");
+				t.t(testObject.to === "to", "testObject.to should have been 'to', was " + testObject.to);
+				t.t(testObject.some === "some", "testObject.some should have been 'some', was " + testObject.some);
+				t.t(testObject.long === "long", "testObject.long should have been 'long', was " + testObject.long);
+				t.t(testObject.thing === "thing/this/is/in/splat", "testObject.thing should have been 'thing/this/is/in/splat', was " + testObject.thing);
+
+				testObject = null;
+
+				router.go("/path/1/2/3/4/5/6");
+
+				t.t(testObject instanceof Object, "testObject should have been an object, but wasn't");
+				t.t(testObject.to === "1", "testObject.to should have been '1', was " + testObject.to);
+				t.t(testObject.some === "2", "testObject.some should have been '2', was " + testObject.some);
+				t.t(testObject.long === "3", "testObject.long should have been '3', was " + testObject.long);
+				t.t(testObject.thing === "4/5/6", "testObject.thing should have been '4/5/6', was " + testObject.thing);
+			}
+		},
+		{
+			name: "Using capture groups in a regex route",
+			runTest: function(t) {
+				var testObject;
+
+				router.register(/^\/path\/(\w+)\/(\d+)$/, function(params) {
+					testObject = params;
+				});
+
+				router.go("/path/abcdef/1234");
+
+				t.t(testObject instanceof Array, "testObject should have been an array, but wasn't");
+				t.t(testObject[0] === "abcdef", "testObject[0] should have been 'abcdef', was " + testObject[0]);
+				t.t(testObject[1] === "1234", "testObject[1] should have been '1234', was " + testObject[1]);
+
+				testObject = null;
+
+				router.go("/path/abc/def");
+
+				t.t(testObject === null, "testObject should have been null, but wasn't");
+
+				router.go("/path/abc123/456def");
+
+				t.t(testObject === null, "testObject should have been null, but wasn't");
+
+				router.go("/path/abc123/456");
+
+				t.t(testObject instanceof Array, "testObject should have been an array, but wasn't");
+				t.t(testObject[0] === "abc123", "testObject[0] should have been 'abc123', was " + testObject[0]);
+				t.t(testObject[1] === "456", "testObject[1] should have been '456', was " + testObject[1]);
+			}
+		},
+		{
+			name: "Testing isBefore parameter",
+			runTest: function(t) {
+				var test = "";
+
+				router.register("/isBefore", function(){
+					test += "1";
+				});
+
+				router.register("/isBefore", function(){
+					test += "2";
+				}, true);
+
+				router.register("/isBefore", function(){
+					test += "3";
+				});
+
+				router.register("/isBefore", function(){
+					test += "4";
+				}, true);
+
+				router.register("/isBefore", function(){
+					test += "5";
+				});
+
+				router.go("/isBefore");
+
+				t.t(test === "42135", "test should have been '42135', was " + test);
 			}
 		}
 	]);
