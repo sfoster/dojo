@@ -31,11 +31,9 @@ define([
 	function handleHashChange(hash){
 		var i, j, li, lj, routeObj, result, parameterNames, callbackObj;
 
-		console.log("handleHashChange:",hash);
-
 		if (!started) { return; }
-
 		if (hash === curPath) { return; }
+
 		curPath = hash;
 
 		for(i = 0, li = routes.length; i < li; ++i){
@@ -206,12 +204,14 @@ define([
 		go: function(path, replace){
 			//	summary:
 			//		A simple pass-through to make changing the hash easy,
-			//		without having to require dojo/hash directly
+			//		without having to require dojo/hash directly. It also
+			//		synchronously fires off any routes that match.
 			//	example:
 			//	|	router.go("/foo/bar");
 
 			path = string.trim(path);
 			hash(path, replace);
+			handleHashChange(path);
 		},
 
 		startup: function(){

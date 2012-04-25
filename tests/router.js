@@ -45,7 +45,7 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 			name: "Ensuring that hash changes fire routes",
 			runTest: function(t) {
 				// Due to the nature of the hashchange event,
-				// these tests are going to be async - but we have to nest it,
+				// theis test is going to be async - but we have to nest it,
 				// sadly.
 
 				var d = new doh.Deferred();
@@ -71,62 +71,38 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 			runTest: function(t) {
 				var d = new doh.Deferred();
 
-				hash("");
+				// Since router.go fires off routes immediately, this should
+				// kick off changes!
+				router.go("");
+				router.go("/foo");
 
-				setTimeout(function(){
-					router.go("/foo");
-
-					setTimeout(d.getTestCallback(function(){
-						t.t(count === 3, "Count should have been 3, was " + count);
-					}), 50);
-				}, 0);
-
-				return d;
+				t.t(count === 3, "Count should have been 3, was " + count);
 			}
 		},
 		{
 			name: "Ensuring route doesn't fire after removal",
 			runTest: function(t) {
-				var d = new doh.Deferred();
-
 				handle.remove();
+				router.go("");
+				router.go("/foo");
 
-				hash("");
-
-				setTimeout(function(){
-					router.go("/foo");
-
-					setTimeout(d.getTestCallback(function(){
-						t.t(count === 3, "Count should have been 3, was " + count);
-					}), 50);
-				}, 0);
-
-				return d;
+				t.t(count === 3, "Count should have been 3, was " + count);
 			}
 		},
 		{
 			name: "Registering a route by regexp",
 			runTest: function(t) {
-				var d = new doh.Deferred();
-
 				router.register(/^\/bar$/, function() {
 					count++;
 				});
 				router.go("/bar");
 
-				setTimeout(d.getTestCallback(function(){
-					t.t(count === 4, "Count should have been 4, was " + count);
-				}), 50);
-
-				return d;
+				t.t(count === 4, "Count should have been 4, was " + count);
 			}
 		},
 		{
 			name: "Registering more complex routes",
 			runTest: function(t) {
-				var d = new doh.Deferred();
-
-				return d;
 			}
 		}
 	]);
