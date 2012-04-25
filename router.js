@@ -1,9 +1,9 @@
 define([
 	"dojo/aspect",
+	"dojo/has",
 	"dojo/hash",
-	"dojo/string",
 	"dojo/topic"
-], function(aspect, hash, string, topic){
+], function(aspect, has, hash, topic){
 
 	//	module:
 	//		dojo/router
@@ -26,6 +26,7 @@ define([
 	var routes = [],
 		routeIndex = {},
 		started = false,
+		isDebug = has("config-isDebug"),
 		curPath;
 
 	function handleHashChange(hash){
@@ -56,20 +57,28 @@ define([
 		}
 	}
 
+	// Creating a basic trim to avoid needing the full dojo/string module
+	// similarly to dojo/_base/lang's trim
+	var trim;
+	if (String.prototype.trim) {
+		trim = function(str) { return str.trim(); };
+	} else {
+		trim = function(str) { return str.replace(/^\s\s*/, '').replace(/\s\s*$/, ''); };
+	}
+
 	// A few pieces to handle converting string routes to regex
 	var idMatch = /:(\w[\w\d]*)/g,
 		idReplacement = "([^\\/]+)",
-		splatMatch = /\*(\w[\w\d]*)/,
-		splatReplacement = "(.+)";
+		globMatch = /\*(\w[\w\d]*)/,
+		globReplacement = "(.+)";
 
 	function convertRouteToRegExp(route){
-		// Sub in based on IDs and splats
+		// Sub in based on IDs and globs
 		route = route.replace(idMatch, idReplacement);
-		route = route.replace(splatMatch, splatReplacement);
+		route = route.replace(globMatch, globReplacement);
 		// Make sure it's an exact match
 		route = "^" + route + "$";
 
-		// Hand it back
 		return new RegExp(route);
 	}
 
@@ -81,7 +90,7 @@ define([
 		while ((match = idMatch.exec(route)) !== null) {
 			parameterNames.push(match[1]);
 		}
-		if ((match = splatMatch.exec(route)) !== null) {
+		if ((match = globMatch.exec(route)) !== null) {
 			parameterNames.push(match[1]);
 		}
 
@@ -98,6 +107,10 @@ define([
 		for (i = 0, l = routes.length; i < l; ++i){
 			route = routes[i];
 			routeIndex[route.route] = i;
+		}
+
+		if (isDebug) {
+			router._index = routeIndex;
 		}
 	}
 
@@ -126,9 +139,10 @@ define([
 			//		as properties of an object.
 			//		- If the last piece of the URL-like structure is prefixed
 			//		with a star (*) instead of a colon, it will be replaced in
-			//		the resulting regex with a greedy dot-star match and
+			//		the resulting regex with a greedy (.+) match and
 			//		anything remaining on the hash will be provided as a
-			//		property on the object passed into the callback
+			//		property on the object passed into the callback. Think of
+			//		it like a basic means of globbing the end of a route.
 			//
 			//	example:
 			//	|	router.register("/foo/:bar/*baz", function(object) {
@@ -223,7 +237,7 @@ define([
 			//	example:
 			//	|	router.go("/foo/bar");
 
-			path = string.trim(path);
+			path = trim(path);
 			hash(path, replace);
 			handleHashChange(path);
 		},
@@ -232,8 +246,7 @@ define([
 			//	summary:
 			//		This method must be called to activate the router. Until
 			//		startup is called, no hash changes will trigger route
-			//		callbacks. In the future, it may also allow for some
-			//		initialization parameters.
+			//		callbacks.
 
 			if (started) { return; }
 
@@ -242,6 +255,12 @@ define([
 			topic.subscribe("/dojo/hashchange", handleHashChange);
 		}
 	};
+
+	if (isDebug) {
+		router._routes = routes;
+		router._index = routeIndex;
+		router._hash = hash;
+	}
 
 	return router;
 });
