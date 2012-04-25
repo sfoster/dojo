@@ -114,14 +114,28 @@ define([
 			//		will monitor the page's hash and respond to changes that
 			//		match the string or regex as provided.
 			//
-			//		- If a regex is provided, the callback will receive an
-			//		array of the groups in the match
+			//		When provided a regex for the route:
+			//		- Matching is performed, and the resulting capture groups
+			//		are passed through to the callback as an array.
 			//
-			//		- If a string is provided, it will be parsed for any
-			//		values that look like a URL structure, and anything
-			//		prefixed with a colon (:) will be turned into a named
-			//		parameter that will show up on the object provided to the
-			//		callback.
+			//		When provided a string for the route:
+			//		- The string is parsed as a URL-like structure, like
+			//		"/foo/bar"
+			//		- If any portions of that URL are prefixed with a colon
+			//		(:), they will be parsed out and provided to the callback
+			//		as properties of an object.
+			//		- If the last piece of the URL-like structure is prefixed
+			//		with a star (*) instead of a colon, it will be replaced in
+			//		the resulting regex with a greedy dot-star match and
+			//		anything remaining on the hash will be provided as a
+			//		property on the object passed into the callback
+			//
+			//	example:
+			//	|	router.register("/foo/:bar/*baz", function(object) {
+			//	|		// If the hash was "/foo/abc/def/ghi",
+			//	|		// object.bar === "abc"
+			//	|		// object.baz === "def/ghi"
+			//	|	});
 			//
 			//	returns:
 			//		A plain JavaScript object to be used as a handle for
