@@ -151,7 +151,7 @@ define([
 			//	|		// object.baz === "def/ghi"
 			//	|	});
 			//
-			//	returns:
+			//	returns: Object
 			//		A plain JavaScript object to be used as a handle for
 			//		either removing this specific callback's registration, as
 			//		well as to add new callbacks with the same route initially
@@ -209,7 +209,7 @@ define([
 			// Useful in a moment to keep from re-removing routes
 			removed = false;
 
-			return { // return Object
+			return { // Object
 				remove: function(){
 					if (removed) { return; }
 
