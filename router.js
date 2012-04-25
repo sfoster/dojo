@@ -172,7 +172,7 @@ define([
 
 			var index, exists, routeObj, handle, removed;
 
-			// Try to fetch the route if it already exists
+			// Try to fetch the route if it already exists.
 			// This works thanks to stringifying of regex
 			index = routeIndex[route];
 			exists = typeof index !== "undefined";
