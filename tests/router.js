@@ -161,7 +161,7 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 			}
 		},
 		{
-			name: "Testing isBefore parameter",
+			name: "Testing register.before",
 			runTest: function(t) {
 				var test = "";
 
@@ -169,17 +169,17 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 					test += "1";
 				});
 
-				router.register("/isBefore", function(){
+				router.register.before("/isBefore", function(){
 					test += "2";
-				}, true);
+				});
 
 				router.register("/isBefore", function(){
 					test += "3";
 				});
 
-				router.register("/isBefore", function(){
+				router.register.before("/isBefore", function(){
 					test += "4";
-				}, true);
+				});
 
 				router.register("/isBefore", function(){
 					test += "5";

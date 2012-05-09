@@ -65,6 +65,9 @@ define([
 		trim = function(str){ return str.replace(/^\s\s*/, '').replace(/\s\s*$/, ''); };
 	}
 
+	// A simple empty function to give us an aspecting hook
+	function noop(){}
+
 	// A few pieces to handle converting string routes to regex
 	var idMatch = /:(\w[\w\d]*)/g,
 	    idReplacement = "([^\\/]+)",
@@ -113,11 +116,68 @@ define([
 		}
 	}
 
-	// A simple empty function to give us an aspecting hook
-	function noop(){}
+	function registerRoute(/*String|RegExp*/route, /*Function*/callback, /*Boolean?*/isBefore){
+		var index, exists, routeObj, handle, removed;
+
+		// Try to fetch the route if it already exists.
+		// This works thanks to stringifying of regex
+		index = routeIndex[route];
+		exists = typeof index !== "undefined";
+		if(exists){ routeObj = routes[index]; }
+
+		// If we didn't get one, make a default start point
+		if(!routeObj){
+			routeObj = {
+				route: route,
+				callback: noop,
+				count: 0
+			};
+		}
+
+		if(typeof route == "string"){
+			routeObj.parameterNames = getParameterNames(route);
+			routeObj.route = convertRouteToRegExp(route);
+		}
+
+
+		if(isBefore){
+			handle = aspect.before(routeObj, "callback", callback);
+		} else {
+			handle = aspect.after(routeObj, "callback", callback, true);
+		}
+		routeObj.count++;
+
+		if(!exists){
+			index = routes.length;
+			routeIndex[route] = index;
+			routes.push(routeObj);
+		}
+
+		// Useful in a moment to keep from re-removing routes
+		removed = false;
+
+		return { // Object
+			remove: function(){
+				if(removed){ return; }
+
+				handle.remove();
+				routeObj.count--;
+
+				if(routeObj.count === 0){
+					routes.splice(index, 1);
+					indexRoutes();
+				}
+
+				removed = true;
+			},
+			register: function(callback, isBefore){
+				return router.register(route, callback, isBefore);
+			}
+		};
+	}
 
 	var router = {
-		register: function(/*String|RegExp*/ route, /*Function*/ callback, /*Boolean?*/ isBefore){
+		register: function(/*String|RegExp*/ route, /*Function*/ callback){
 			//	summary:
 			//		Registers a route to a handling callback
 			//
@@ -163,69 +223,8 @@ define([
 			//		When the hash matches a pattern as described in the route,
 			//		this callback will be executed. It will receive either an
 			//		array or an object, depending on the route.
-			//	isBefore: Boolean?
-			//		If `isBefore` is true, then the callback will be set up to
-			//		fire before any prior registered callbacks on that same
-			//		route. By default, new callbacks bound to the same route
-			//		will fire in sequence of registration.
 
-			var index, exists, routeObj, handle, removed;
-
-			// Try to fetch the route if it already exists.
-			// This works thanks to stringifying of regex
-			index = routeIndex[route];
-			exists = typeof index !== "undefined";
-			if(exists){ routeObj = routes[index]; }
-
-			// If we didn't get one, make a default start point
-			if(!routeObj){
-				routeObj = {
-					route: route,
-					callback: noop,
-					count: 0
-				};
-			}
-
-			if(typeof route == "string"){
-				routeObj.parameterNames = getParameterNames(route);
-				routeObj.route = convertRouteToRegExp(route);
-			}
-
-
-			if(isBefore){
-				handle = aspect.before(routeObj, "callback", callback);
-			} else {
-				handle = aspect.after(routeObj, "callback", callback, true);
-			}
-			routeObj.count++;
-
-			if(!exists){
-				index = routes.length;
-				routeIndex[route] = index;
-				routes.push(routeObj);
-			}
-
-			// Useful in a moment to keep from re-removing routes
-			removed = false;
-
-			return { // Object
-				remove: function(){
-					if(removed){ return; }
-
-					handle.remove();
-					routeObj.count--;
-
-					if(routeObj.count === 0){
-						routes.splice(index, 1);
-						indexRoutes();
-					}
-
-					removed = true;
-				},
-				register: function(callback, isBefore){
-					return router.register(route, callback, isBefore);
-				}
-			};
+			return registerRoute(route, callback);
 		},
 
 		go: function(path, replace){
@@ -253,6 +252,15 @@ define([
 			handleHashChange(hash());
 			topic.subscribe("/dojo/hashchange", handleHashChange);
 		}
+	};
+
+	router.register.before = function(/*String|RegExp*/ route, /*Function*/ callback){
+		//	summary:
+		//		Registers a route to a handling callback, but the registered
+		//		callback fires before other previously defined callbacks. See
+		//		router.register for more details.
+
+		return registerRoute(route, callback, true);
 	};
 
 	if(isDebug){
