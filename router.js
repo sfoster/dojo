@@ -24,32 +24,31 @@ define([
 	//	|	});
 
 	var routes = [],
-		routeIndex = {},
-		started = false,
-		isDebug = has("config-isDebug"),
-		curPath;
+	    routeIndex = {},
+	    started = false,
+	    isDebug = has("config-isDebug"),
+	    curPath;
 
 	function handleHashChange(hash){
 		var i, j, li, lj, routeObj, result, parameterNames, callbackObj;
 
-		if (!started) { return; }
-		if (hash === curPath) { return; }
+		if(!started || hash === curPath){ return; }
 
 		curPath = hash;
 
-		for(i = 0, li = routes.length; i < li; ++i){
+		for(i=0, li=routes.length; i<li; ++i){
 			routeObj = routes[i];
 			result = routeObj.route.exec(curPath);
 
-			if (result) {
-				if (routeObj.parameterNames) {
+			if(result){
+				if(routeObj.parameterNames){
 					parameterNames = routeObj.parameterNames;
 					callbackObj = {};
 
-					for (j = 0, lj = parameterNames.length; j < lj; ++j) {
+					for(j=0, lj=parameterNames.length; j<lj; ++j){
 						callbackObj[parameterNames[j]] = result[j+1];
 					}
-				} else {
+				}else{
 					callbackObj = result.slice(1);
 				}
 				routeObj.callback(callbackObj);
@@ -60,17 +59,17 @@ define([
 	// Creating a basic trim to avoid needing the full dojo/string module
 	// similarly to dojo/_base/lang's trim
 	var trim;
-	if (String.prototype.trim) {
-		trim = function(str) { return str.trim(); };
+	if(String.prototype.trim){
+		trim = function(str){ return str.trim(); };
 	} else {
-		trim = function(str) { return str.replace(/^\s\s*/, '').replace(/\s\s*$/, ''); };
+		trim = function(str){ return str.replace(/^\s\s*/, '').replace(/\s\s*$/, ''); };
 	}
 
 	// A few pieces to handle converting string routes to regex
 	var idMatch = /:(\w[\w\d]*)/g,
-		idReplacement = "([^\\/]+)",
-		globMatch = /\*(\w[\w\d]*)/,
-		globReplacement = "(.+)";
+	    idReplacement = "([^\\/]+)",
+	    globMatch = /\*(\w[\w\d]*)/,
+	    globReplacement = "(.+)";
 
 	function convertRouteToRegExp(route){
 		// Sub in based on IDs and globs
@@ -87,10 +86,10 @@ define([
 
 		idMatch.lastIndex = 0;
 
-		while ((match = idMatch.exec(route)) !== null) {
+		while((match = idMatch.exec(route)) !== null){
 			parameterNames.push(match[1]);
 		}
-		if ((match = globMatch.exec(route)) !== null) {
+		if((match = globMatch.exec(route)) !== null){
 			parameterNames.push(match[1]);
 		}
 
@@ -104,12 +103,12 @@ define([
 		routeIndex = {};
 
 		// Set it up again
-		for (i = 0, l = routes.length; i < l; ++i){
+		for(i=0, l=routes.length; i<l; ++i){
 			route = routes[i];
 			routeIndex[route.route] = i;
 		}
 
-		if (isDebug) {
+		if(isDebug){
 			router._index = routeIndex;
 		}
 	}
@@ -118,7 +117,7 @@ define([
 	function noop(){}
 
 	var router = {
-		register: function(/* String|RegExp */ route, /* Function */ callback, /* Boolean? */ isBefore) {
+		register: function(/*String|RegExp*/ route, /*Function*/ callback, /*Boolean?*/ isBefore){
 			//	summary:
 			//		Registers a route to a handling callback
 			//
@@ -176,10 +175,10 @@ define([
 			// This works thanks to stringifying of regex
 			index = routeIndex[route];
 			exists = typeof index !== "undefined";
-			if (exists) { routeObj = routes[index]; }
+			if(exists){ routeObj = routes[index]; }
 
 			// If we didn't get one, make a default start point
-			if (!routeObj) {
+			if(!routeObj){
 				routeObj = {
 					route: route,
 					callback: noop,
@@ -187,20 +186,20 @@ define([
 				};
 			}
 
-			if (typeof route === "string") {
+			if(typeof route == "string"){
 				routeObj.parameterNames = getParameterNames(route);
 				routeObj.route = convertRouteToRegExp(route);
 			}
 
 
-			if (isBefore) {
+			if(isBefore){
 				handle = aspect.before(routeObj, "callback", callback);
 			} else {
 				handle = aspect.after(routeObj, "callback", callback, true);
 			}
 			routeObj.count++;
 
-			if (!exists) {
+			if(!exists){
 				index = routes.length;
 				routeIndex[route] = index;
 				routes.push(routeObj);
@@ -211,19 +210,19 @@ define([
 
 			return { // Object
 				remove: function(){
-					if (removed) { return; }
+					if(removed){ return; }
 
 					handle.remove();
 					routeObj.count--;
 
-					if (routeObj.count === 0) {
+					if(routeObj.count === 0){
 						routes.splice(index, 1);
 						indexRoutes();
 					}
 
 					removed = true;
 				},
-				register: function(callback, isBefore) {
+				register: function(callback, isBefore){
 					return router.register(route, callback, isBefore);
 				}
 			};
@@ -248,7 +247,7 @@ define([
 			//		startup is called, no hash changes will trigger route
 			//		callbacks.
 
-			if (started) { return; }
+			if(started){ return; }
 
 			started = true;
 			handleHashChange(hash());
@@ -256,7 +255,7 @@ define([
 		}
 	};
 
-	if (isDebug) {
+	if(isDebug){
 		router._routes = routes;
 		router._index = routeIndex;
 		router._hash = hash;
