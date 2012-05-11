@@ -260,8 +260,23 @@ define([
 			//		monitoring hash changes.
 			//	callback: Function
 			//		When the hash matches a pattern as described in the route,
-			//		this callback will be executed. It will receive either an
-			//		array or an object, depending on the route.
+			//		this callback will be executed. It will receive an event
+			//		object that will have several properties:
+			//		- params: Either an array or object of properties pulled
+			//		from the new hash
+			//		- oldPath: The hash in its state before the change
+			//		- newPath: The new hash being shifted to
+			//		- preventDefault: A method that will stop hash changes
+			//		from being actually applied to the active hash. This only
+			//		works if the hash change was initiated using `router.go`,
+			//		as changes initiated more directly to the location.hash
+			//		property will already be in place
+			//		- stopImmediatePropagation: When called, will stop any
+			//		further bound callbacks on this particular route from
+			//		being executed. If two distinct routes are bound that are
+			//		different, but both happen to match the current hash in
+			//		some way, this will *not* keep other routes from receiving
+			//		notice of the change.
 
 			return registerRoute(route, callback);
 		},
