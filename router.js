@@ -26,33 +26,39 @@ define([
 	    routeIndex = {},
 	    started = false,
 	    isDebug = has("config-isDebug"),
-	    curPath;
+	    currentPath = "";
 
-	function handleHashChange(hash){
-		var i, j, li, lj, routeObj, result, parameterNames, callbackObj;
+	function handlePathChange(newPath){
+		var i, j, li, lj, routeObj, result, allowChange, parameterNames, params;
 
-		if(!started || hash === curPath){ return; }
+		if(!started || newPath === currentPath){ return; }
 
-		curPath = hash;
+		allowChange = true;
 
 		for(i=0, li=routes.length; i<li; ++i){
 			routeObj = routes[i];
-			result = routeObj.route.exec(curPath);
+			result = routeObj.route.exec(newPath);
 
 			if(result){
 				if(routeObj.parameterNames){
 					parameterNames = routeObj.parameterNames;
-					callbackObj = {};
+					params = {};
 
 					for(j=0, lj=parameterNames.length; j<lj; ++j){
-						callbackObj[parameterNames[j]] = result[j+1];
+						params[parameterNames[j]] = result[j+1];
 					}
 				}else{
-					callbackObj = result.slice(1);
+					params = result.slice(1);
 				}
-				routeObj.fire(callbackObj);
+				allowChange = routeObj.fire(params, currentPath, newPath);
 			}
 		}
+
+		if (allowChange) {
+			currentPath = newPath;
+		}
+
+		return allowChange;
 	}
 
 	// Creating a basic trim to avoid needing the full dojo/string module
@@ -112,7 +118,7 @@ define([
 		}
 	}
 
-	function fireRoute(callbackObj){
+	function fireRoute(params, currentPath, newPath){
 		var queue, isStopped, isPrevented, eventObj, i, l;
 
 		queue = this.callbackQueue;
@@ -121,7 +127,9 @@ define([
 		eventObj = {
 			stopImmediatePropagation: function(){ isStopped = true; },
 			preventDefault: function(){ isPrevented = true; },
-			params: callbackObj
+			oldPath: currentPath,
+			newPath: newPath,
+			params: params
 		};
 
 		for(i=0, l=queue.length; i<l; ++i){
@@ -129,6 +137,8 @@ define([
 				queue[i](eventObj);
 			}
 		}
+
+		return !isPrevented;
 	}
 
 	function registerRoute(/*String|RegExp*/route, /*Function*/callback, /*Boolean?*/isBefore){
@@ -264,9 +274,16 @@ define([
 			//	example:
 			//	|	router.go("/foo/bar");
 
+			var applyChange;
+
 			path = trim(path);
-			hash(path, replace);
-			handleHashChange(path);
+			applyChange = handlePathChange(path);
+
+			if (applyChange) {
+				hash(path, replace);
+			}
+
+			return applyChange;
 		},
 
 		startup: function(){
@@ -278,8 +295,8 @@ define([
 			if(started){ return; }
 
 			started = true;
-			handleHashChange(hash());
-			topic.subscribe("/dojo/hashchange", handleHashChange);
+			handlePathChange(hash());
+			topic.subscribe("/dojo/hashchange", handlePathChange);
 		}
 	};
 

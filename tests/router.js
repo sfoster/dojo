@@ -56,9 +56,11 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 				setTimeout(function(){
 					// As soon as possible, set it back to our test...
 					hash("/foo");
+					console.log("Setting hash");
 
 					// ... and then check to make sure the events fired
 					setTimeout(d.getTestCallback(function(){
+						console.log("Checking count, current hash:", hash());
 						t.t(count === 2, "Count should have been 2, was " + count);
 					}), 50);
 				}, 0);
@@ -98,6 +100,33 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 				router.go("/bar");
 
 				t.t(count === 4, "Count should have been 4, was " + count);
+			}
+		},
+		{
+			name: "Checking event object",
+			runTest: function(t) {
+				var oldPath, newPath, params, stopImmediatePropagation, preventDefault;
+
+				router.go("");
+
+				router.register("/checkEventObject/:foo", function(e){
+					console.log("e:",e);
+					oldPath = e.oldPath;
+					newPath = e.newPath;
+					params = e.params;
+					stopImmediatePropagation = typeof e.stopImmediatePropagation;
+					preventDefault = typeof e.preventDefault;
+				});
+
+				router.go("/checkEventObject/bar");
+
+				t.t(oldPath === "", "oldPath should be empty string, was " + oldPath);
+				t.t(newPath === "/checkEventObject/bar", "newPath should be '/checkEventObject/bar', was " + newPath);
+				t.t(params, "params should be a truthy value, was " + params);
+				t.t(params.hasOwnProperty("foo"), "params should have a .foo property");
+				t.t(params.foo === "bar", "params.foo should be bar, was " + params.foo);
+				t.t(stopImmediatePropagation === "function", "stopImmediatePropagation should be a function, was " + stopImmediatePropagation);
+				t.t(preventDefault === "function", "preventDefault should be a function, was " + preventDefault);
 			}
 		},
 		{
@@ -200,18 +229,43 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 
 				router.register("/stopImmediatePropagation", function(e){
 					e.stopImmediatePropagation();
-					console.log("Test:", test);
 					test += "C";
-					console.log("Test:", test);
 				});
 
 				router.register("/stopImmediatePropagation", function(){ test += "D"; });
 				router.register("/stopImmediatePropagation", function(){ test += "E"; });
 
 				router.go("/stopImmediatePropagation");
-				console.log("Test now:", test);
 
 				t.t(test === "ABC", "test should have been 'ABC', was " + test);
+			}
+		},
+		{
+			name: "Preventing default (change)",
+			runTest: function(t) {
+				var prevented = false, goResult;
+
+				hash("");
+
+				t.t(hash() === "", "hash should be empty");
+
+				router.register("/preventDefault", function(e){
+					e.preventDefault();
+				});
+
+				goResult = router.go("/preventDefault");
+
+				t.t(hash() === "", "hash should still be empty");
+				t.t(goResult === false, "goResult should be false");
+
+				goResult = router.go("/someOtherPath");
+
+				t.t(hash() === "/someOtherPath", "hash should be '/someOtherPath'");
+				t.t(goResult === true, "goResult should be true");
+
+				router.register("/allowDefault", function(e){
+					console.log("Doing something here without explicitly stopping");
+				});
 			}
 		}
 	]);
