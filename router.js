@@ -1,9 +1,8 @@
 define([
-	"dojo/aspect",
 	"dojo/has",
 	"dojo/hash",
 	"dojo/topic"
-], function(aspect, has, hash, topic){
+], function(has, hash, topic){
 
 	//	module:
 	//		dojo/router
@@ -51,7 +50,7 @@ define([
 				}else{
 					callbackObj = result.slice(1);
 				}
-				routeObj.callback(callbackObj);
+				routeObj.fire(callbackObj);
 			}
 		}
 	}
@@ -64,9 +63,6 @@ define([
 	} else {
 		trim = function(str){ return str.replace(/^\s\s*/, '').replace(/\s\s*$/, ''); };
 	}
-
-	// A simple empty function to give us an aspecting hook
-	function noop(){}
 
 	// A few pieces to handle converting string routes to regex
 	var idMatch = /:(\w[\w\d]*)/g,
@@ -116,36 +112,50 @@ define([
 		}
 	}
 
+	function fireRoute(callbackObj){
+		var queue = this.callbackQueue, i, l;
+
+		for(i=0, l=queue.length; i<l; ++i){
+			queue[i](callbackObj);
+		}
+	}
+
 	function registerRoute(/*String|RegExp*/route, /*Function*/callback, /*Boolean?*/isBefore){
-		var index, exists, routeObj, handle, removed;
+		var index, exists, routeObj, callbackQueue, removed;
 
 		// Try to fetch the route if it already exists.
 		// This works thanks to stringifying of regex
 		index = routeIndex[route];
 		exists = typeof index !== "undefined";
-		if(exists){ routeObj = routes[index]; }
+		if(exists){
+			routeObj = routes[index];
+		}
 
 		// If we didn't get one, make a default start point
 		if(!routeObj){
 			routeObj = {
 				route: route,
-				callback: noop,
-				count: 0
+				callbackQueue: [],
+				fire: fireRoute
 			};
 		}
+
+		callbackQueue = routeObj.callbackQueue;
 
 		if(typeof route == "string"){
 			routeObj.parameterNames = getParameterNames(route);
 			routeObj.route = convertRouteToRegExp(route);
 		}
 
-
 		if(isBefore){
-			handle = aspect.before(routeObj, "callback", callback);
+			callback._prev = null;
+			callback._next = callbackQueue[0] || null;
+			callbackQueue.unshift(callback);
 		} else {
-			handle = aspect.after(routeObj, "callback", callback, true);
+			callback._prev = callbackQueue[callbackQueue.length-1];
+			callback._next = null;
+			callbackQueue.push(callback);
 		}
-		routeObj.count++;
 
 		if(!exists){
 			index = routes.length;
@@ -158,12 +168,20 @@ define([
 
 		return { // Object
 			remove: function(){
+				var i, l;
+
 				if(removed){ return; }
 
-				handle.remove();
-				routeObj.count--;
+				for(i=0, l=callbackQueue.length; i<l; ++i){
+					if(callbackQueue[i] === callback){
+						if(callback._prev) { callback._prev._next = callback._next; }
+						if(callback._next) { callback._next._prev = callback._prev; }
+						callbackQueue.splice(i, 1);
+					}
+				}
 
-				if(routeObj.count === 0){
+
+				if(callbackQueue.length === 0){
 					routes.splice(index, 1);
 					indexRoutes();
 				}
