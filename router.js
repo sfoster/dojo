@@ -169,12 +169,8 @@ define([
 		}
 
 		if(isBefore){
-			callback._prev = null;
-			callback._next = callbackQueue[0] || null;
 			callbackQueue.unshift(callback);
 		} else {
-			callback._prev = callbackQueue[callbackQueue.length-1];
-			callback._next = null;
 			callbackQueue.push(callback);
 		}
 
@@ -195,8 +191,6 @@ define([
 
 				for(i=0, l=callbackQueue.length; i<l; ++i){
 					if(callbackQueue[i] === callback){
-						if(callback._prev) { callback._prev._next = callback._next; }
-						if(callback._next) { callback._next._prev = callback._prev; }
 						callbackQueue.splice(i, 1);
 					}
 				}
