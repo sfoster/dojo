@@ -105,8 +105,8 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 			runTest: function(t) {
 				var testObject;
 
-				router.register("/path/:to/:some/:long/*thing", function(params){
-					testObject = params;
+				router.register("/path/:to/:some/:long/*thing", function(e){
+					testObject = e.params;
 				});
 
 				router.go("/path/to/some/long/thing/this/is/in/splat");
@@ -133,8 +133,8 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 			runTest: function(t) {
 				var testObject;
 
-				router.register(/^\/path\/(\w+)\/(\d+)$/, function(params) {
-					testObject = params;
+				router.register(/^\/path\/(\w+)\/(\d+)$/, function(e) {
+					testObject = e.params;
 				});
 
 				router.go("/path/abcdef/1234");
@@ -188,6 +188,30 @@ define(["doh", "../hash", "../router"], function(doh, hash, router){
 				router.go("/isBefore");
 
 				t.t(test === "42135", "test should have been '42135', was " + test);
+			}
+		},
+		{
+			name: "Stopping propagation",
+			runTest: function(t) {
+				var test = "";
+
+				router.register("/stopImmediatePropagation", function(){ test += "A"; });
+				router.register("/stopImmediatePropagation", function(){ test += "B"; });
+
+				router.register("/stopImmediatePropagation", function(e){
+					e.stopImmediatePropagation();
+					console.log("Test:", test);
+					test += "C";
+					console.log("Test:", test);
+				});
+
+				router.register("/stopImmediatePropagation", function(){ test += "D"; });
+				router.register("/stopImmediatePropagation", function(){ test += "E"; });
+
+				router.go("/stopImmediatePropagation");
+				console.log("Test now:", test);
+
+				t.t(test === "ABC", "test should have been 'ABC', was " + test);
 			}
 		}
 	]);

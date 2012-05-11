@@ -113,10 +113,21 @@ define([
 	}
 
 	function fireRoute(callbackObj){
-		var queue = this.callbackQueue, i, l;
+		var queue, isStopped, isPrevented, eventObj, i, l;
+
+		queue = this.callbackQueue;
+		isStopped = false;
+		isPrevented = false;
+		eventObj = {
+			stopImmediatePropagation: function(){ isStopped = true; },
+			preventDefault: function(){ isPrevented = true; },
+			params: callbackObj
+		};
 
 		for(i=0, l=queue.length; i<l; ++i){
-			queue[i](callbackObj);
+			if (!isStopped) {
+				queue[i](eventObj);
+			}
 		}
 	}
 
