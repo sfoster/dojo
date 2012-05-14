@@ -9,9 +9,10 @@ define([
 	//		dojo/router
 	//	summary:
 	//		A module that allows one to easily map hash-based structures into
-	//		callbacks. The router module is a singleton, offering one central
-	//		point for all registrations of this type.
+	//		callbacks. The router module is a class, configured by default to listen for events
+	//		on dojo/hash's /dojo/hashchange topic
 	//	example:
+	//	|	var router = new Router()
 	//	|	router.register("/widgets/:id", function(params) {
 	//	|		// If "/widgets/3" was matched,
 	//	|		// params.id === "3"
@@ -34,6 +35,7 @@ define([
 	
 	Router.prototype.curPath = "";
 	Router.prototype.started = false;
+	Router.prototype.changeTopic = "/dojo/hashchange";
 	
 	Router.prototype.handleHashChange = function(hash){
 		var i, j, li, lj, routeObj, result, parameterNames, callbackObj;
@@ -75,6 +77,7 @@ define([
 	// A simple empty function to give us an aspecting hook
 	function noop(){}
 
+	// inline 'hitch'-alike
 	function bind(obj, method){
 		return function(){
 			return ('function'===typeof method ? method : obj[method]).apply(obj, arguments);
@@ -124,9 +127,6 @@ define([
 			routeIndex[route.route] = i;
 		}
 
-		if(isDebug){
-			this._index = routeIndex;
-		}
 	};
 
 	Router.prototype.registerRoute = function(/*String|RegExp*/route, /*Function*/callback, /*Boolean?*/isBefore){
@@ -261,10 +261,12 @@ define([
 		//		callbacks.
 
 		if(this.started){ return; }
-
 		this.started = true;
-		this.handleHashChange(hash());
-		topic.subscribe("/dojo/hashchange", bind(this, "handleHashChange"));
+
+		// use initial value of curPath to initialize, if one has been set
+		this.handleHashChange( this.hasOwnProperty("curPath") || hash() );
+
+		topic.subscribe( this.changeTopic, bind(this, "handleHashChange"));
 	};
 
 	Router.prototype.registerBefore = function(/*String|RegExp*/ route, /*Function*/ callback){
@@ -281,6 +283,6 @@ define([
 	//	router._index = routeIndex;
 	//	router._hash = hash;
 	// }
-
+	
 	return Router;
 });
