@@ -23,22 +23,29 @@ define([
 	//	|		});
 	//	|	});
 
-	var routes = [],
-	    routeIndex = {},
-	    started = false,
-	    isDebug = has("config-isDebug"),
-	    curPath;
+	var isDebug = has("config-isDebug");
+	
+	function Router(){
+		var routes = this._routes = [],
+			routeIndex = this._index = {};
 
-	function handleHashChange(hash){
+		this.register.before = bind(this, "registerBefore");
+	}
+	
+	Router.prototype.curPath = "";
+	Router.prototype.started = false;
+	
+	Router.prototype.handleHashChange = function(hash){
 		var i, j, li, lj, routeObj, result, parameterNames, callbackObj;
+		var routes = this._routes;
 
-		if(!started || hash === curPath){ return; }
+		if(!this.started || hash === this.curPath){ return; }
 
-		curPath = hash;
+		this.curPath = hash;
 
 		for(i=0, li=routes.length; i<li; ++i){
 			routeObj = routes[i];
-			result = routeObj.route.exec(curPath);
+			result = routeObj.route.exec(this.curPath);
 
 			if(result){
 				if(routeObj.parameterNames){
@@ -54,7 +61,7 @@ define([
 				routeObj.callback(callbackObj);
 			}
 		}
-	}
+	};
 
 	// Creating a basic trim to avoid needing the full dojo/string module
 	// similarly to dojo/_base/lang's trim
@@ -68,6 +75,12 @@ define([
 	// A simple empty function to give us an aspecting hook
 	function noop(){}
 
+	function bind(obj, method){
+		return function(){
+			return ('function'===typeof method ? method : obj[method]).apply(obj, arguments);
+		};
+	}
+	
 	// A few pieces to handle converting string routes to regex
 	var idMatch = /:(\w[\w\d]*)/g,
 	    idReplacement = "([^\\/]+)",
@@ -99,11 +112,11 @@ define([
 		return parameterNames.length > 0 ? parameterNames : null;
 	}
 
-	function indexRoutes(){
-		var i, l, route;
+	Router.prototype.indexRoutes = function(){
+		var i, l, route, routes = this._routes;
 
 		// Reset our route index
-		routeIndex = {};
+		var routeIndex = this._index = {};
 
 		// Set it up again
 		for(i=0, l=routes.length; i<l; ++i){
@@ -112,16 +125,18 @@ define([
 		}
 
 		if(isDebug){
-			router._index = routeIndex;
+			this._index = routeIndex;
 		}
-	}
+	};
 
-	function registerRoute(/*String|RegExp*/route, /*Function*/callback, /*Boolean?*/isBefore){
-		var index, exists, routeObj, handle, removed;
-
+	Router.prototype.registerRoute = function(/*String|RegExp*/route, /*Function*/callback, /*Boolean?*/isBefore){
+		var index, exists, routeObj, handle, removed, 
+				routes = this._routes;
+		var router = this;
+		
 		// Try to fetch the route if it already exists.
 		// This works thanks to stringifying of regex
-		index = routeIndex[route];
+		index = this._index[route];
 		exists = typeof index !== "undefined";
 		if(exists){ routeObj = routes[index]; }
 
@@ -149,7 +164,7 @@ define([
 
 		if(!exists){
 			index = routes.length;
-			routeIndex[route] = index;
+			this._index[route] = index;
 			routes.push(routeObj);
 		}
 
@@ -165,7 +180,7 @@ define([
 
 				if(routeObj.count === 0){
 					routes.splice(index, 1);
-					indexRoutes();
+					router.indexRoutes();
 				}
 
 				removed = true;
@@ -174,100 +189,98 @@ define([
 				return router.register(route, callback, isBefore);
 			}
 		};
-	}
-
-	var router = {
-		register: function(/*String|RegExp*/ route, /*Function*/ callback){
-			//	summary:
-			//		Registers a route to a handling callback
-			//
-			//	description:
-			//		Given either a string or a regular expression, the router
-			//		will monitor the page's hash and respond to changes that
-			//		match the string or regex as provided.
-			//
-			//		When provided a regex for the route:
-			//		- Matching is performed, and the resulting capture groups
-			//		are passed through to the callback as an array.
-			//
-			//		When provided a string for the route:
-			//		- The string is parsed as a URL-like structure, like
-			//		"/foo/bar"
-			//		- If any portions of that URL are prefixed with a colon
-			//		(:), they will be parsed out and provided to the callback
-			//		as properties of an object.
-			//		- If the last piece of the URL-like structure is prefixed
-			//		with a star (*) instead of a colon, it will be replaced in
-			//		the resulting regex with a greedy (.+) match and
-			//		anything remaining on the hash will be provided as a
-			//		property on the object passed into the callback. Think of
-			//		it like a basic means of globbing the end of a route.
-			//
-			//	example:
-			//	|	router.register("/foo/:bar/*baz", function(object) {
-			//	|		// If the hash was "/foo/abc/def/ghi",
-			//	|		// object.bar === "abc"
-			//	|		// object.baz === "def/ghi"
-			//	|	});
-			//
-			//	returns: Object
-			//		A plain JavaScript object to be used as a handle for
-			//		either removing this specific callback's registration, as
-			//		well as to add new callbacks with the same route initially
-			//		used.
-			//
-			//	route: String | RegExp
-			//		A string or regular expression which will be used when
-			//		monitoring hash changes.
-			//	callback: Function
-			//		When the hash matches a pattern as described in the route,
-			//		this callback will be executed. It will receive either an
-			//		array or an object, depending on the route.
-
-			return registerRoute(route, callback);
-		},
-
-		go: function(path, replace){
-			//	summary:
-			//		A simple pass-through to make changing the hash easy,
-			//		without having to require dojo/hash directly. It also
-			//		synchronously fires off any routes that match.
-			//	example:
-			//	|	router.go("/foo/bar");
-
-			path = trim(path);
-			hash(path, replace);
-			handleHashChange(path);
-		},
-
-		startup: function(){
-			//	summary:
-			//		This method must be called to activate the router. Until
-			//		startup is called, no hash changes will trigger route
-			//		callbacks.
-
-			if(started){ return; }
-
-			started = true;
-			handleHashChange(hash());
-			topic.subscribe("/dojo/hashchange", handleHashChange);
-		}
 	};
 
-	router.register.before = function(/*String|RegExp*/ route, /*Function*/ callback){
+	Router.prototype.register = function(/*String|RegExp*/ route, /*Function*/ callback){
+		//	summary:
+		//		Registers a route to a handling callback
+		//
+		//	description:
+		//		Given either a string or a regular expression, the router
+		//		will monitor the page's hash and respond to changes that
+		//		match the string or regex as provided.
+		//
+		//		When provided a regex for the route:
+		//		- Matching is performed, and the resulting capture groups
+		//		are passed through to the callback as an array.
+		//
+		//		When provided a string for the route:
+		//		- The string is parsed as a URL-like structure, like
+		//		"/foo/bar"
+		//		- If any portions of that URL are prefixed with a colon
+		//		(:), they will be parsed out and provided to the callback
+		//		as properties of an object.
+		//		- If the last piece of the URL-like structure is prefixed
+		//		with a star (*) instead of a colon, it will be replaced in
+		//		the resulting regex with a greedy (.+) match and
+		//		anything remaining on the hash will be provided as a
+		//		property on the object passed into the callback. Think of
+		//		it like a basic means of globbing the end of a route.
+		//
+		//	example:
+		//	|	router.register("/foo/:bar/*baz", function(object) {
+		//	|		// If the hash was "/foo/abc/def/ghi",
+		//	|		// object.bar === "abc"
+		//	|		// object.baz === "def/ghi"
+		//	|	});
+		//
+		//	returns: Object
+		//		A plain JavaScript object to be used as a handle for
+		//		either removing this specific callback's registration, as
+		//		well as to add new callbacks with the same route initially
+		//		used.
+		//
+		//	route: String | RegExp
+		//		A string or regular expression which will be used when
+		//		monitoring hash changes.
+		//	callback: Function
+		//		When the hash matches a pattern as described in the route,
+		//		this callback will be executed. It will receive either an
+		//		array or an object, depending on the route.
+
+		return this.registerRoute(route, callback);
+	};
+
+	Router.prototype.go = function(path, replace){
+		//	summary:
+		//		A simple pass-through to make changing the hash easy,
+		//		without having to require dojo/hash directly. It also
+		//		synchronously fires off any routes that match.
+		//	example:
+		//	|	router.go("/foo/bar");
+
+		path = trim(path);
+		hash(path, replace);
+		this.handleHashChange(path);
+	};
+
+	Router.prototype.startup = function(){
+		//	summary:
+		//		This method must be called to activate the router. Until
+		//		startup is called, no hash changes will trigger route
+		//		callbacks.
+
+		if(this.started){ return; }
+
+		this.started = true;
+		this.handleHashChange(hash());
+		topic.subscribe("/dojo/hashchange", bind(this, "handleHashChange"));
+	};
+
+	Router.prototype.registerBefore = function(/*String|RegExp*/ route, /*Function*/ callback){
 		//	summary:
 		//		Registers a route to a handling callback, but the registered
 		//		callback fires before other previously defined callbacks. See
 		//		router.register for more details.
 
-		return registerRoute(route, callback, true);
+		return this.registerRoute(route, callback, true);
 	};
 
-	if(isDebug){
-		router._routes = routes;
-		router._index = routeIndex;
-		router._hash = hash;
-	}
+	// if(isDebug){
+	//	router._routes = routes;
+	//	router._index = routeIndex;
+	//	router._hash = hash;
+	// }
 
-	return router;
+	return Router;
 });

@@ -1,7 +1,9 @@
-define(["doh", "../hash", "../router"], function(doh, hash, router){
+define(["doh", "../hash", "../router"], function(doh, hash, Router){
 	var count = 0,
 		handle, foo;
 
+	var router = new Router();
+  
 	doh.register("tests.router", [
 		{
 			name: "Router API",
